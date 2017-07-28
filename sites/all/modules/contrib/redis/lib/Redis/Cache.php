@@ -167,6 +167,9 @@ class Redis_Cache
         return $this->maxTtl;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function __construct($bin)
     {
         $this->bin = $bin;
@@ -258,21 +261,21 @@ class Redis_Cache
         list($flushPerm, $flushVolatile) = $this->backend->getLastFlushTime();
 
         $checksum = $this->getValidChecksum(
-            max([
+            max(array(
                 $flushPerm,
                 $flushVolatile,
                 $permanent,
                 time(),
-            ])
+            ))
         );
 
         if ($permanent) {
             $this->backend->setLastFlushTimeFor($checksum, false);
             $this->backend->setLastFlushTimeFor($checksum, true);
-            $this->flushCache = [$checksum, $checksum];
+            $this->flushCache = array($checksum, $checksum);
         } else if ($volatile) {
             $this->backend->setLastFlushTimeFor($checksum, true);
-            $this->flushCache = [$flushPerm, $checksum];
+            $this->flushCache = array($flushPerm, $checksum);
         }
     }
 
@@ -288,7 +291,7 @@ class Redis_Cache
         if (!$this->flushCache) {
             $this->flushCache = $this->backend->getLastFlushTime();
         }
- 
+
          // At the very first hit, we might not have the timestamps set, thus
          // we need to create them to avoid our entry being considered as
          // invalid

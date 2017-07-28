@@ -1,5 +1,9 @@
 <?php
 
+if (!class_exists('Redis_Tests_AbstractUnitTestCase')) {
+  require_once(__DIR__ . '/../AbstractUnitTestCase.php');
+}
+
 /**
  * Bugfixes made over time test class.
  */
@@ -9,6 +13,11 @@ abstract class Redis_Tests_Cache_FixesUnitTestCase extends Redis_Tests_AbstractU
      * @var Cache bin identifier
      */
     static private $id = 1;
+
+    protected function createCacheInstance($name = null)
+    {
+        return new Redis_Cache($name);
+    }
 
     /**
      * Get cache backend
@@ -24,7 +33,7 @@ abstract class Redis_Tests_Cache_FixesUnitTestCase extends Redis_Tests_AbstractU
             $name = 'cache' . (self::$id++);
         }
 
-        $backend = new Redis_Cache($name);
+        $backend = $this->createCacheInstance($name);
 
         $this->assert(true, "Redis client is " . ($backend->isSharded() ? '' : "NOT ") . " sharded");
         $this->assert(true, "Redis client is " . ($backend->allowTemporaryFlush() ? '' : "NOT ") . " allowed to flush temporary entries");
