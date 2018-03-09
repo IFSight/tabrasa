@@ -1,0 +1,177 @@
+# General URLS:
+# maybe how we turn these into pass/fail : https://github.com/justinribeiro/lighthouse-mocha-example
+#
+### Global setup
+#   usermod -aG docker gitlab-runner
+#
+#
+### Setting up lighthouse before we run it via CI
+# https://developers.google.com/web/tools/lighthouse/
+# https://hub.docker.com/r/justinribeiro/lighthouse/
+#
+# Setup Once
+#   mkdir -p /home/gitlab-runner/lighthouse/reports
+#   chown 999.gitlab-runner /home/gitlab-runner/lighthouse/reports
+#   chmod 775 /home/gitlab-runner/lighthouse/reports
+#   su - gitlab-runner
+#   docker pull justinribeiro/lighthouse
+#   wget https://raw.githubusercontent.com/jfrazelle/dotfiles/master/etc/docker/seccomp/chrome.json -O ~/chrome.json
+#   mkdir ~/bin
+#   echo "docker run --rm -v /home/gitlab-runner/lighthouse/reports:/home/chrome/reports --security-opt seccomp=$HOME/chrome.json justinribeiro/lighthouse lighthouse --chrome-flags="--headless --disable-gpu" --quiet \$1" > ~/bin/run-lighthouse && chmod 750 ~/bin/run-lighthouse
+#   run-lighthouse https://ci.shared8.ifsight.net
+#
+# Manual Running Example
+#   docker run -it --rm -v /home/gitlab-runner/lighthouse/reports:/home/chrome/reports --security-opt seccomp=$HOME/chrome.json justinribeiro/lighthouse
+#   lighthouse --chrome-flags="--headless --disable-gpu" --quiet https://ci.shared8.ifsight.net
+#
+#
+### Setting up phpunit
+# Need phpunit 5.x as that is the last one to support php5
+# https://hub.docker.com/r/phpunit/phpunit/
+# https://www.drupal.org/docs/8/phpunit/running-phpunit-tests
+#
+# Setup Once
+#   su - gitlab-runner
+#   docker pull phpunit/phpunit:5.7.12 # Not sure if we want a better repo, this is 5.7.20 in the container itself...
+#   echo "mkdir -p $(pwd)/reports/phpunit;  docker run -v $(pwd)/docroot:/app -w /app/core phpunit/phpunit:5.7.12 phpunit tests/Drupal/Tests/Core/Password/PasswordHashingTest.php 2>&1 1>reports/phpunit/phpunit.log" > ~/bin/run-phpunit && chmod 750 ~/bin/run-phpunit
+#
+# Manual Running Example
+#   docker run -it -v $(pwd):/app --rm  --entrypoint /bin/bash phpunit/phpunit:5.7.12
+#   /usr/local/bin/phpunit tests/Drupal/Tests/Core/Password/PasswordHashingTest.php
+#
+# I had issues as any arugment that tried to write to a file in the container (with or without a volume) would just sit forever
+#
+#
+### Setting up wraith
+# http://bbc-news.github.io/wraith/
+# https://hub.docker.com/r/bbcnews/wraith/
+#
+# Setup Once
+#   su - gitlab-runner
+#   docker pull bbcnews/wraith
+#   # TODO put notes about docker cp out the configure command so we can cp it on runs
+#   echo "docker run bbcnews/wraith" > ~/bin/run-wraith && chmod 750 ~/bin/run-wraith
+#
+# Manual Running Example
+#   vim test.yml # see http://bbc-news.github.io/wraith/configs.html and make one
+#   docker run -it --rm --entrypoint /bin/bash bbcnews/wraith
+#   mkdir -p /wraith
+#   cd /wraith
+#   wraith setup
+#  # in another terminal window now that the container is up
+#   docker cp test.yml $WRAITH_CONTAINER_NAME:/wraith/configs/ # from docker ps
+#  # back in container
+#   wraith capture configs/test.yml
+#  # back to docker host, have to copy out files to view the info
+#   docker cp $WRAITH_CONTAINER_NAME:/wraith/shots /tmp/shots
+#  # now scp /tmp/shots to your local to view the html
+#
+#
+### Setting up yellowlab
+# http://yellowlab.tools
+# https://github.com/jguyomard/docker-yellowlabtools
+#
+# Setup Once
+#   su - gitlab-runner
+#   docker pull jguyomard/yellowlabtools
+#   echo "mkdir -p $(pwd)/reports/yellowlab" > ~/bin/run-yellowlab
+#   echo "docker run -u \$(id -u) -v $(pwd)/reports/yellowlab:/reports --rm --entrypoint node jguyomard/yellowlabtools bin/cli.js --screenshot=/reports/phone.png --device=phone $1 1>reports/yellowlab/yellowlab.json" >> ~/bin/run-yellowlab
+#   chmod 750 ~/bin/run-yellowlab
+#
+# Manual Running Example
+#   docker run -it --rm --entrypoint /bin/bash jguyomard/yellowlabtools
+#   node bin/cli.js https://www.google.com
+#
+#
+#
+#### Start of the actual CI scripting
+# links to other good stuff : https://docs.gitlab.com/ee/user/project/pages/getting_started_part_four.html
+# documentation of gitlab-ci.yml : https://docs.gitlab.com/ce/ci/yaml/README.html
+# variables you can use with gitlabci : https://docs.gitlab.com/ce/ci/variables/README.html
+
+variables:
+  CLIENT: "sha7"
+  CI_URL: "https://ci.shared7.ifsight.net"
+  PRD_URL: "https://shared7.ifsight.net"
+  PRD_SYNC_URL: "shared7.ifsight.net"
+  CI_SYNC_URL: "ci.shared7.ifsight.net"
+  PRD_DB_HOST: "db-read-1.prd.shar.ifops"
+#  SECRET_CI_DB_PASS: "set in gitlab secret vars"
+#  SECRET_PRD_DB_PASS: "set in gitlab secret vars"
+
+#  - unit-test
+stages:
+  - fresh-setup
+  - clear-cache
+  - function-test
+  - performance-test
+
+fresh-setup:
+  stage: fresh-setup
+  script:
+    - run-fresh-setup $PRD_SYNC_URL $CI_SYNC_URL $SECRET_CI_DB_PASS $SECRET_PRD_DB_PASS $CLIENT $PRD_DB_HOST
+
+clear-cache:
+  stage: clear-cache
+  script:
+    - run-clear-cache $CI_SYNC_URL
+
+lighthouse:
+  stage: performance-test
+  script:
+   - run-lighthouse $CI_URL
+  artifacts:
+    paths:
+      - reports
+    expire_in: 3w
+    when: always
+
+pa11y:
+  stage: performance-test
+  script:
+    - run-pa11y $CI_URL
+  artifacts:
+    paths:
+      - reports
+    expire_in: 3w
+    when: always
+
+#phpunit:
+#  stage: unit-test
+#  script:
+#    - run-phpunit
+#  artifacts:
+#    paths:
+#      - reports
+#    expire_in: 3w
+#    when: always
+
+wraith:
+  stage: performance-test
+  script:
+    - run-wraith $CI_URL $PRD_URL
+  artifacts:
+    paths:
+      - reports
+    expire_in: 3w
+    when: always
+
+yellowlab:
+  stage: performance-test
+  script:
+    - run-yellowlab $CI_URL
+  artifacts:
+    paths:
+      - reports
+    expire_in: 3w
+    when: always
+
+behat:
+  stage: function-test
+  script:
+   - run-behat $CI_URL
+  artifacts:
+    paths:
+      - reports
+    expire_in: 3w
+    when: always
