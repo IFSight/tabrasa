@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Fulcrum Whitelist Feature feature.
+ */
+
+include_once 'fulcrum_whitelist_feature.features.inc';

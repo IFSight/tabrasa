@@ -1,0 +1,222 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function fulcrum_whitelist_menu() {
+  $items['fulcrum/whitelist/%'] = [
+    'page callback'     => 'fulcrum_whitelist',
+    'page arguments'    => [2],
+    'access callback'   => TRUE,
+  ];
+
+  $items['admin/config/fulcrum_whitelist'] = [
+    'page callback'     => 'drupal_get_form',
+    'page arguments'    => ['fulcrum_whitelist_admin_form'],
+    'access arguments'  => ['access administration pages'],
+    'type'              => MENU_NORMAL_ITEM,
+    'file'              => 'fulcrum_whitelist.admin.inc',
+    'file path'         => drupal_get_path('module', 'fulcrum_whitelist') . '/include'
+  ];
+
+  return $items;
+}
+
+/**
+ * Implements hook_cron().
+ */
+function fulcrum_whitelist_cron() {
+  _fulcrum_whitelist_create_tokens();
+}
+
+/**
+ * Implements hook_install().
+ */
+function fulcrum_whitelist_install() {
+  _fulcrum_whitelist_create_tokens();
+}
+
+/**
+ * Implements hook_theme().
+ */
+function fulcrum_whitelist_theme($existing, $type, $theme, $path) {
+  $mod_path = drupal_get_path('module', 'fulcrum_whitelist');
+
+  return [
+    'dechrome' => [
+      'template' => 'dechrome',
+      'path' => $mod_path . '/templates',
+      'variables' => [
+        'message' => NULL,
+        'js'      => NULL
+      ],
+    ],
+    'javascript' => [
+      'template' => 'javascript',
+      'path' => $mod_path . '/templates',
+      'variables' => [
+        'delay' => NULL,
+      ],
+    ]
+  ];
+}
+
+/**
+ * Make the whitelist tokens
+ */
+function _fulcrum_whitelist_create_tokens() {
+  $selectSQL = t(
+    _fulcrum_whitelist_users_wo_tokens(),
+    ['@limit' => variable_get('fulcrum_whitelist_token_process_limit')]
+  );
+
+  // watchdog('fulcrum_whitelist', 'in cron: ' . $selectSQL);
+
+  // find users that dont exist in fulcrum_whitelist entity
+  $accounts = db_query($selectSQL)
+    ->fetchAll();
+
+  foreach ($accounts as $account) {
+    $token = user_password(50);
+
+    $fulcrum_whitelist = entity_create('fulcrum_whitelist', [
+      'type' => 'fulcrum_whitelist',
+      'title' => $token,
+    ]);
+
+    $fulcrum_whitelist->field_fulcrum_whitelist_user = [LANGUAGE_NONE => [0 => ['target_id' => $account->uid]]];
+
+    entity_save('fulcrum_whitelist_entity', $fulcrum_whitelist);
+
+    // log a notice
+    watchdog('fulcrum_whitelist', t('Created token for @mail', ['@mail' => $account->mail]));
+  }
+}
+
+/**
+ * Whitelist.
+ *
+ * @return string
+ *   Return Hello string.
+ */
+function fulcrum_whitelist($authtoken) {
+  $html = fulcrum_whitelist_dechrome_page(variable_get('fulcrum_whitelist_misconf_text'));
+
+  // don't cache this page
+  drupal_page_is_cacheable(FALSE);
+
+  // make sure we are configured
+  if (
+    ($env_abbr = fulcrum_whitelist_env_abbr()) &&
+    isset($env_abbr) &&
+    isset($env_abbr->abbr) &&
+    $env_abbr->abbr != 'unkn'
+  ) {
+    $selectSQL = t(_fulcrum_whitelist_name_email_from_token(), ['@authtoken' => $authtoken]);
+
+    // lookup user by token, make sure there user and token is enabled
+    if ((
+      $account = db_query($selectSQL)->fetchObject()) &&
+      isset($account->mail)
+    ) {
+      // curl the whitelist with http://172.17.0.16:18888/scvw/prd/1.2.3.4/foo@bar.com
+      $params = [
+        '@host' => variable_get('fulcrum_whitelist_whitelist_host'),
+        '@port' => variable_get('fulcrum_whitelist_port'),
+        '@abbr' => $env_abbr->abbr,
+        '@env'  => $env_abbr->env,
+        '@ip'   => $_SERVER['HTTP_X_CLIENT_IP'], //ip_address(),
+        '@mail' => $account->mail,
+      ];
+
+      $url = t('http://@host:@port/@abbr/@env/@ip/@mail', $params);
+
+      // add watchdog
+      watchdog('fulcrum_whitelist', t(
+            'Whitelist UID: @uid mail: @mail url: @url',
+            [
+              '@url'  => $url,
+              '@uid'  => $account->uid,
+              '@mail' => $account->mail,
+            ]
+          )
+        );
+
+      $result = file_get_contents($url);
+
+      // return the themed wait redirect
+      $html = fulcrum_whitelist_dechrome_page(variable_get('fulcrum_whitelist_wait_text'), TRUE);
+    } else {
+      // add watchdog
+      watchdog('fulcrum_whitelist', t(
+            'Whitelist attempt failed for token: @authtoken',
+            ['@authtoken' => $authtoken]
+          )
+        );
+
+      $html = fulcrum_whitelist_dechrome_page(variable_get('fulcrum_whitelist_fail_text'));
+    }
+  }
+
+  print $html;
+  drupal_exit();
+}
+
+function fulcrum_whitelist_dechrome_page($message = '', $inc_js = FALSE) {
+  $js = '';
+
+  if ($inc_js) {
+    $js_vars = [
+      'delay' => variable_get('fulcrum_whitelist_delay')
+    ];
+
+    $js = theme('javascript', $js_vars);
+  }
+
+  // return the themed wait redirect
+  $vars = [
+    'message'    => $message,
+    'js'         => $js
+  ];
+
+  $html = theme('dechrome', $vars);
+
+  return $html;
+}
+
+function fulcrum_whitelist_env_abbr() {
+  if (
+    ($fconf = json_decode($_SERVER['FULCRUM_CONF'])) &&
+    isset($fconf->env)
+  ) {
+    return (object)[
+      'env'  => $fconf->env,
+      'abbr' => variable_get('fulcrum_whitelist_whitelist_abbr'),
+    ];
+  }
+
+  return false;
+}
+
+function _fulcrum_whitelist_name_email_from_token() {
+  return <<<SQL
+    SELECT u.uid, u.mail
+    FROM {users} u
+    JOIN {eck_fulcrum_whitelist} e
+    JOIN {field_data_field_fulcrum_whitelist_user}   w ON e.id = w.entity_id AND u.uid = w.field_fulcrum_whitelist_user_target_id
+    JOIN {field_data_field_fulcrum_whitelist_status} s ON e.id = s.entity_id AND s.field_fulcrum_whitelist_status_value = 1
+    WHERE u.status = 1
+    AND e.title = '@authtoken'
+SQL;
+}
+
+function _fulcrum_whitelist_users_wo_tokens() {
+  return <<< SQL
+    SELECT u.uid, u.mail
+    FROM {users} u
+    LEFT JOIN {field_data_field_fulcrum_whitelist_user} w ON u.uid = w.field_fulcrum_whitelist_user_target_id
+    WHERE u.status = 1
+    AND w.entity_id IS NULL
+    LIMIT @limit
+SQL;
+}

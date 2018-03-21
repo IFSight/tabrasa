@@ -1,0 +1,8 @@
+name = Fulcrum Whitelist
+core = 7.x
+description = Fulcrum Whitelist
+package = Fulcrum
+
+dependencies[] = fulcrum_whitelist_feature
+
+configure = admin/config/fulcrum_whitelist
