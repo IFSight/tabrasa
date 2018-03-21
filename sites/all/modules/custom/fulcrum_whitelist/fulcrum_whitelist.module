@@ -67,7 +67,7 @@ function fulcrum_whitelist_theme($existing, $type, $theme, $path) {
 function _fulcrum_whitelist_create_tokens() {
   $selectSQL = t(
     _fulcrum_whitelist_users_wo_tokens(),
-    ['@limit' => variable_get('fulcrum_whitelist_token_process_limit')]
+    ['@limit' => variable_get('fulcrum_whitelist_token_process_limit', 50)]
   );
 
   // watchdog('fulcrum_whitelist', 'in cron: ' . $selectSQL);
