@@ -3,6 +3,8 @@
 function fulcrum_whitelist_admin_form($form, &$form_state) {
   $config = _fulcrum_whitelist_config();
 
+  _fulcrum_whitelist_create_tokens();
+
   $form['fulcrum_whitelist_host'] = [
     '#type' => 'textfield',
     '#title' => t('Whitelist Host'),
