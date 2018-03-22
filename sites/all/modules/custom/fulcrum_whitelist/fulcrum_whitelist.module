@@ -1,8 +1,5 @@
 <?php
 
-// TODO: looks like ECK needs to be a requirement
-// TODO: make defaults...
-
 /**
  * Implements hook_menu().
  */
@@ -29,13 +26,6 @@ function fulcrum_whitelist_menu() {
  * Implements hook_cron().
  */
 function fulcrum_whitelist_cron() {
-  _fulcrum_whitelist_create_tokens();
-}
-
-/**
- * Implements hook_install().
- */
-function fulcrum_whitelist_install() {
   _fulcrum_whitelist_create_tokens();
 }
 
