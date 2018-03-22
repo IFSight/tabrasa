@@ -1,0 +1,8 @@
+<?php
+
+/**
+ * Implements hook_enable().
+ */
+function fulcrum_whitelist_enable() {
+  drupal_set_message(l('Be sure to configure whitelisting', 'admin/config/fulcrum_whitelist'), 'warning');
+}
