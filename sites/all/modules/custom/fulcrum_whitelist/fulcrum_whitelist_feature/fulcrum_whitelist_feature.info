@@ -1,6 +1,6 @@
 name = Fulcrum Whitelist Feature
 core = 7.x
-package = Fuclrum
+package = Fulcrum
 dependencies[] = eck
 dependencies[] = entityreference
 dependencies[] = features

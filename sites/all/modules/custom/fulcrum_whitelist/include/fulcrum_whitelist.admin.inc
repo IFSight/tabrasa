@@ -27,11 +27,16 @@ function fulcrum_whitelist_admin_form($form, &$form_state) {
     '#title' => t('Delay seconds for servers to all whitelist'),
     '#default_value' => $config->delay
   ];
+  $form['fulcrum_whitelist_redirect'] = [
+    '#type' => 'textfield',
+    '#title' => t('The URI to redirect to after whitelisting'),
+    '#default_value' => $config->redirect
+  ];
   $form['fulcrum_whitelist_abbr'] = [
     '#type' => 'textfield',
     '#title' => t('Whitelist Abbreviation'),
-    '#maxlength' => 4,
-    '#size' => 6,
+    '#maxlength' => 8,
+    '#size' => 10,
     '#default_value' => $config->abbr
   ];
   $form['fulcrum_whitelist_wait_text'] = [

@@ -10,11 +10,12 @@ function fulcrum_whitelist_menu() {
     'access callback'   => TRUE,
   ];
 
-  $items['admin/config/fulcrum_whitelist'] = [
+  $items['admin/config/system/fulcrum_whitelist'] = [
+    'title'             => 'Fulcrum Whitelist Settings',
+    'description'       => 'Configure the Fulcrum Whitelist module.',
     'page callback'     => 'drupal_get_form',
     'page arguments'    => ['fulcrum_whitelist_admin_form'],
     'access arguments'  => ['access administration pages'],
-    'type'              => MENU_NORMAL_ITEM,
     'file'              => 'fulcrum_whitelist.admin.inc',
     'file path'         => drupal_get_path('module', 'fulcrum_whitelist') . '/include'
   ];
@@ -49,6 +50,7 @@ function fulcrum_whitelist_theme($existing, $type, $theme, $path) {
       'path' => $mod_path . '/templates',
       'variables' => [
         'delay' => NULL,
+        'redirect' => NULL,
       ],
     ]
   ];
@@ -164,7 +166,8 @@ function _fulcrum_whitelist_dechrome_page($message = '', $inc_js = FALSE) {
 
   if ($inc_js) {
     $js_vars = [
-      'delay' => $config->delay
+      'delay'     => $config->delay,
+      'redirect'  => $config->redirect
     ];
 
     $js = theme('javascript', $js_vars);
@@ -218,7 +221,8 @@ function _fulcrum_whitelist_config_defaults() {
     'host'                => 'whitelist',
     'port'                => 18888,
     'token_process_limit' => 50,
-    'delay'               => 3,
+    'delay'               => 20,
+    'redirect'            => '/user',
     'abbr'                => 'unkn',
     'wait_text'           => t('Please wait while we authorize this whitelisting'),
     'fail_text'           => t('Your whitelist authorization failed, this has been logged. Please reach out to the sites technical contact'),

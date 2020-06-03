@@ -1,8 +1,47 @@
 <?php
 
 /**
+ * @file
+ * Installation and update functionality for fulcrum_whitelist module.
+ */
+
+/**
  * Implements hook_enable().
  */
 function fulcrum_whitelist_enable() {
   drupal_set_message(l('Be sure to configure whitelisting', 'admin/config/fulcrum_whitelist'), 'warning');
+}
+
+/**
+ * Update the default delay seconds to 20. Create redirect for old token list.
+ */
+function fulcrum_whitelist_update_7001() {
+  variable_set('fulcrum_whitelist_delay', 20);
+
+  // Create a redirect from the old fulcrum whitelist tokens url to the new.
+  if (module_exists('redirect')) {
+    $redirect = (object) array(
+      'rid' => NULL,
+      'type' => 'redirect',
+      'hash' => NULL,
+      'source' => 'fulcrum/whitelist-tokens',
+      'source_options' => array(),
+      'redirect' => 'admin/structure/whitelist-tokens',
+      'redirect_options' => array(),
+      'language' => LANGUAGE_NONE,
+      'status_code' => 0,
+      'override' => NULL,
+    );
+    redirect_save($redirect);
+  }
+
+  // Revert the views component as changes were made to the view.
+  features_revert(array('fulcrum_whitelist_feature' => array('views_view')));
+}
+
+/**
+ * Set default redirect path of "/user" for after whitelisting
+ */
+function fulcrum_whitelist_update_7002() {
+  variable_set('fulcrum_whitelist_redirect', '/user');
 }
