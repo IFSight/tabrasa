@@ -585,4 +585,6 @@ $conf['404_fast_html'] = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN"
  */
 # $conf['theme_debug'] = TRUE;
 
-fulcrum_config('pre');
+if (function_exists('fulcrum_config')) {
+  fulcrum_config('pre');
+}
